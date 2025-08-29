@@ -1,4 +1,4 @@
-# ---------- oriented-box & collisions ----------
+#oriented-box & collisions
 def _clampf(v, lo, hi): return max(lo, min(hi, v))
 def _circle_vs_aabb(px, py, r, bx, by, half):
     qx = _clampf(px, bx - half, bx + half)
@@ -53,7 +53,7 @@ def _collides_holes(px, py):
     return False
 
 
-# ---------- level geometry ----------
+# level geometry
 def set_level_geometry():
     global WALLS, GATES, HOLES
     WALLS = [(WALL_X, -WALL_HALF, WALL_X, WALL_HALF, WALL_THICK)]
@@ -110,7 +110,7 @@ def draw_level_geometry():
         _draw_hole(cx, cy, r)
 
 
-# ---------- crates & pushing ----------
+# crates & pushing 
 def find_colliding_crate(px, py):
     for i, (cx, cy) in enumerate(CRATES):
         if _circle_vs_aabb(px, py, PLAYER_RADIUS, cx, cy, CRATE_HALF):
@@ -217,7 +217,7 @@ def draw_crates():
         glPopMatrix()
 
 
-# ---------- plates & linked gates ----------
+# plates & linked gates
 def _crate_on_plate(px, py):
     for (cx, cy) in CRATES:
         if _circle_vs_aabb(px, py, PLATE_R * 0.95, cx, cy, CRATE_HALF * 0.98):
@@ -282,7 +282,7 @@ def init_plates():
     PLATE_AWARDED = [False] * len(PLATES)
 
 
-# ---------- movement & player ----------
+# movement & player 
 def collides_noncrate(nx, ny):
     thresh2 = (PLAYER_PLUS_TREE) ** 2
     for (tx, ty, _h, _r, _hue) in trees:
@@ -358,7 +358,7 @@ def draw_player():
     glPopMatrix(); glPopMatrix()
 
 
-# ---------- gate portal (feature 5) ----------
+# gate portal f5
 def _gate_center(g):
     ax, ay, bx, by = g[0], g[1], g[2], g[3]
     return ((ax + bx) * 0.5, (ay + by) * 0.5)
@@ -379,7 +379,7 @@ def check_exit_portal():
             hud_msg = "Teleport blocked"
 
 
-# ---------- sweepers & roamers ----------
+# sweepers & roamers 
 def _sweeper_endpoints(s):
     cx, cy, _cz, length, ang_deg, _spd, _half = s
     a = math.radians(ang_deg)
@@ -469,7 +469,7 @@ def resolve_sweepers_vs_crates(max_outer=32):
                 s[0] += (dx / d) * step; s[1] += (dy / d) * step
 
 
-# ---------- roamers ----------
+# roamers 
 def init_roamers():
     global ROAMERS
     ROAMERS = [
@@ -517,7 +517,7 @@ def roamers_check_collision():
             return
 
 
-# ---------- core keyboard (WASD & turning only) ----------
+# core keyboard (WASD & turning only) 
 def keyboard_core(k, _x, _y):
     global player_yaw
     if k == b'a': player_yaw = (player_yaw + TURN_SPEED) % 360.0
@@ -528,7 +528,6 @@ def keyboard_core(k, _x, _y):
         fx, fy = forward_vec(player_yaw); try_move(-fx * MOVE_SPEED, -fy * MOVE_SPEED)
 
 
-# ---------- init_world for core ----------
 def init_world(seed):
     init_trees(seed=seed + 71, count=12, min_dist=240.0)
     set_level_geometry()
