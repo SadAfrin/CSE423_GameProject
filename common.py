@@ -4,7 +4,6 @@ from OpenGL.GLU import *
 import math, random, time
 
 
-# ---------- window & camera shared ----------
 win_w, win_h = 1200, 800
 fovY = 100
 cam_ang = 120.0
@@ -17,7 +16,6 @@ cam_h   = 420.0 * (GRID_LEN / 600.)
 follow  = 0
 
 
-# ---------- player & speeds ----------
 player_x = 0.0
 player_y = 0.0
 player_yaw = 0.0
@@ -26,14 +24,13 @@ TURN_SPEED = 10.0
 BASE_MOVE_SPEED = MOVE_SPEED  
 
 
-# ---------- collision sizes ----------
+# collision sizes 
 PLAYER_RADIUS    = 14.0
 TREE_TRUNK_R     = 8.0
 TREE_COLLIDE_R   = TREE_TRUNK_R + 6.0
 PLAYER_PLUS_TREE = (PLAYER_RADIUS + TREE_COLLIDE_R)
 
 
-# ---------- score/hud/state ----------
 frames     = 0
 fps_guess  = 60
 sec_left   = 999
@@ -50,13 +47,11 @@ GATE_GRACE_SEC = 2.5
 _last_all_plates_time = 0.0
 
 
-# ---------- one-time awarding flags ----------
 PLATE_AWARDED = []
 _gate_open_awarded = False
 _level_gate_reach_awarded = False
 
 
-# ---------- geometry containers ----------
 WALLS = []   # (ax, ay, bx, by, r)
 GATES = []   # (ax, ay, bx, by, r, open)
 HOLES = []   # (cx, cy, r)
@@ -109,7 +104,7 @@ RESTEP_BREAK_SEC  = 3.0
 AUTOHEAL_SEC      = 5.0
 
 
-# ---------- utils ----------
+# helpers
 def clamp(v, lo, hi): return max(lo, min(hi, v))
 def forward_vec(yaw_deg):
     r = math.radians(yaw_deg)
@@ -154,7 +149,6 @@ def draw_text(x, y, text, font=GLUT_BITMAP_HELVETICA_18, color=(1.0, 1.0, 1.0), 
     glMatrixMode(GL_MODELVIEW)
 
 
-# ---------- background sky ----------
 def draw_sky():
     glMatrixMode(GL_PROJECTION); glPushMatrix(); glLoadIdentity()
     gluOrtho2D(0, win_w, 0, win_h)
@@ -172,7 +166,7 @@ def draw_sky():
     glMatrixMode(GL_MODELVIEW)
 
 
-# ---------- ground ----------
+# ground 
 CELL_SIZE = 240.0
 def _hash32(x):
     x = (x ^ (x >> 16)) & 0xffffffff
@@ -227,7 +221,7 @@ def draw_ground_infinite():
         xi = xip
 
 
-# ---------- simple shapes ----------
+# simple shapes 
 def draw_disk(radius, segments=40):
     glBegin(GL_TRIANGLES)
     for i in range(segments):
@@ -247,7 +241,7 @@ def draw_circle_outline(radius, segments=40, z=0.0):
     glEnd()
 
 
-# ---------- trees ----------
+# trees 
 trees = []
 def init_trees(seed=999, count=12, min_dist=240.0, border_margin=None):
     global trees
@@ -289,7 +283,6 @@ def draw_jungle_props():
         draw_tree(x, y, h, r, hue)
 
 
-# ---- boot ----
 def main():
     glutInit()
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB | GLUT_DEPTH)
