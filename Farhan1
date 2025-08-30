@@ -1,586 +1,206 @@
-﻿# CSE423 Game Project
-
 #Farhan
 
+# block1_ui.py
+from common import *
+import block2_core as core
+import block3_adv as adv
 
 
-# Feature 6: Dynamic Weather System
-WEATHER_CYCLE = 0
-WEATHER_STATE = 0  # 0=clear, 1=rain, 2=fog
-WEATHER_INTENSITY = 0.0
-RAIN_PARTICLES = []
-FOG_DENSITY = 0.0
-
-def init_weather_system():
-    global RAIN_PARTICLES, WEATHER_STATE
-    RAIN_PARTICLES = []
-    WEATHER_STATE = random.randint(0, 2)
-    for _ in range(200):
-        x = random.uniform(-GRID_LEN, GRID_LEN)
-        y = random.uniform(-GRID_LEN, GRID_LEN)
-        z = random.uniform(100, 400)
-        RAIN_PARTICLES.append([x, y, z, random.uniform(5, 15)])
-
-def update_weather():
-    global WEATHER_CYCLE, WEATHER_INTENSITY, FOG_DENSITY, WEATHER_STATE
-    
-    WEATHER_CYCLE += 0.001
-    if WEATHER_CYCLE > 1.0:
-        WEATHER_CYCLE = 0
-        WEATHER_STATE = random.randint(0, 2)
-    
-    # Smooth weather transitions
-    target_intensity = 0.7 if WEATHER_STATE == 1 else 0.0
-    target_fog = 0.6 if WEATHER_STATE == 2 else 0.1
-    
-    WEATHER_INTENSITY += (target_intensity - WEATHER_INTENSITY) * 0.01
-    FOG_DENSITY += (target_fog - FOG_DENSITY) * 0.01
-    
-    # Update rain particles
-    if WEATHER_STATE == 1 and WEATHER_INTENSITY > 0.3:
-        for p in RAIN_PARTICLES:
-            p[2] -= p[3] * (0.5 + WEATHER_INTENSITY)
-            if p[2] < 0:
-                p[0] = random.uniform(-GRID_LEN, GRID_LEN)
-                p[1] = random.uniform(-GRID_LEN, GRID_LEN)
-                p[2] = random.uniform(300, 500)
-
-def draw_weather_effects():
-    if WEATHER_STATE == 1 and WEATHER_INTENSITY > 0.3:  # Rain
-        glColor4f(0.7, 0.7, 1.0, 0.6 * WEATHER_INTENSITY)
-        glBegin(GL_LINES)
-        for p in RAIN_PARTICLES:
-            if random.random() < WEATHER_INTENSITY:
-                glVertex3f(p[0], p[1], p[2])
-                glVertex3f(p[0], p[1], p[2] - 20)
-        glEnd()
-    
-    elif WEATHER_STATE == 2:  # Fog
-        glFogf(GL_FOG_DENSITY, FOG_DENSITY)
-        glClearColor(0.6, 0.6, 0.6, 1.0)
-
-# Feature 7: Day/Night Cycle
-TIME_OF_DAY = 0.5  # 0=midnight, 0.5=noon, 1=midnight
-DAY_NIGHT_SPEED = 0.0005
-
-def update_day_night_cycle():
-    global TIME_OF_DAY
-    TIME_OF_DAY = (TIME_OF_DAY + DAY_NIGHT_SPEED) % 1.0
-
-def get_sky_color():
-    # Calculate sky color based on time of day
-    if TIME_OF_DAY < 0.25:  # Night to dawn
-        t = TIME_OF_DAY * 4
-        return (0.1, 0.1, 0.3 + t * 0.2)
-    elif TIME_OF_DAY < 0.5:  # Dawn to day
-        t = (TIME_OF_DAY - 0.25) * 4
-        return (0.1 + t * 0.5, 0.1 + t * 0.5, 0.5 - t * 0.2)
-    elif TIME_OF_DAY < 0.75:  # Day to dusk
-        t = (TIME_OF_DAY - 0.5) * 4
-        return (0.6 - t * 0.3, 0.6 - t * 0.3, 0.3 + t * 0.2)
-    else:  # Dusk to night
-        t = (TIME_OF_DAY - 0.75) * 4
-        return (0.3 - t * 0.2, 0.3 - t * 0.2, 0.5 + t * 0.3)
-
-# Feature 17: Interactive NPCs
-NPCS = []
-NPC_DIALOGUES = [
-    "Find all gems to earn extra lives!",
-    "Watch out for fragile ground!",
-    "Use dash with SPACE for quick moves!",
-    "Pressure plates open the exit gate!",
-    "Checkpoints save your progress!"
-]
-
-def init_npcs(seed):
-    global NPCS
-    rng = random.Random(seed + 555)
-    NPCS = []
-    for i in range(3):
-        x = rng.uniform(-GRID_LEN * 0.6, GRID_LEN * 0.6)
-        y = rng.uniform(-GRID_LEN * 0.6, GRID_LEN * 0.6)
-        if _safe_point_for_player(x, y):
-            NPCS.append({
-                'x': x, 'y': y, 'angle': 0,
-                'dialogue': NPC_DIALOGUES[i % len(NPC_DIALOGUES)],
-                'talk_cooldown': 0
-            })
-
-def update_npcs():
-    for npc in NPCS:
-        npc['angle'] += 0.01
-        if npc['talk_cooldown'] > 0:
-            npc['talk_cooldown'] -= 1
-
-def draw_npcs():
-    for npc in NPCS:
-        glPushMatrix()
-        glTranslatef(npc['x'], npc['y'], 40)
-        glRotatef(npc['angle'] * 30, 0, 0, 1)
-        
-        # NPC body
-        glColor3f(0.8, 0.2, 0.2)
-        glutSolidSphere(15, 16, 16)
-        
-        # NPC head
-        glTranslatef(0, 0, 20)
-        glColor3f(1.0, 0.7, 0.7)
-        glutSolidSphere(10, 12, 12)
-        glPopMatrix()
-
-def check_npc_interaction():
-    global hud_msg
-    for npc in NPCS:
-        dist = math.sqrt((player_x - npc['x'])**2 + (player_y - npc['y'])**2)
-        if dist < 50 and npc['talk_cooldown'] <= 0:
-            hud_msg = f"NPC: {npc['dialogue']}"
-            npc['talk_cooldown'] = 120
-
-# Feature 18: Dynamic Music System
-MUSIC_STATE = "exploration"
-MUSIC_INTENSITY = 0.0
-
-def update_music_system():
-    global MUSIC_STATE, MUSIC_INTENSITY
-    
-    # Check if player is in danger
-    danger_near = False
-    for s in SWEEPERS:
-        dist = math.sqrt((player_x - s[0])**2 + (player_y - s[1])**2)
-        if dist < 200:
-            danger_near = True
-            break
-    
-    # Smooth transition between music states
-    target_intensity = 1.0 if danger_near else 0.0
-    MUSIC_INTENSITY += (target_intensity - MUSIC_INTENSITY) * 0.05
-    
-    # Update music state based on intensity
-    if MUSIC_INTENSITY > 0.7:
-        MUSIC_STATE = "danger"
-    elif MUSIC_INTENSITY > 0.3:
-        MUSIC_STATE = "tense"
+# ---------- cameras (feature 7) ----------
+def setup_camera():
+    glMatrixMode(GL_PROJECTION); glLoadIdentity()
+    gluPerspective(fovY, max(1.0, win_w) / float(max(1.0, win_h)), 0.1, 4000.0)
+    glMatrixMode(GL_MODELVIEW); glLoadIdentity()
+    if follow:
+        fx, fy = forward_vec(player_yaw)
+        rx, ry =  fy, -fx
+        back, up, right = 650.0, 500.0, 0.0
+        ex = player_x - fx*back + rx*right
+        ey = player_y - fy*back + ry*right
+        ez = up
+        look = 220.0; pitd = 8.0; dz = math.tan(math.radians(pitd)) * look
+        cx = player_x + fx*look; cy = player_y + fy*look; cz = ez - dz
+        gluLookAt(ex, ey, ez, cx, cy, cz, 0, 0, 1)
     else:
-        MUSIC_STATE = "exploration"
+        ang = math.radians(cam_ang)
+        ex = math.cos(ang) * cam_rad; ey = math.sin(ang) * (cam_rad * 0.85); ez = cam_h
+        gluLookAt(ex, ey, ez, 0, 0, 0, 0, 0, 1)
 
-# Feature 19: Player Customization
-PLAYER_COLORS = [
-    (0.0, 0.0, 1.0),   # Blue (default)
-    (1.0, 0.0, 0.0),   # Red
-    (0.0, 1.0, 0.0),   # Green
-    (1.0, 1.0, 0.0),   # Yellow
-    (1.0, 0.5, 0.0)    # Orange
-]
-current_color_index = 0
 
-def cycle_player_color():
-    global current_color_index
-    current_color_index = (current_color_index + 1) % len(PLAYER_COLORS)
-    return f"Color: {['Blue','Red','Green','Yellow','Orange'][current_color_index]}"
+def special(key, _x, _y):
+    global cam_ang, cam_h
+    if follow: return
+    if key == GLUT_KEY_LEFT:  cam_ang = (cam_ang + 2) % 360
+    if key == GLUT_KEY_RIGHT: cam_ang = (cam_ang - 2) % 360
+    if key == GLUT_KEY_UP:    cam_h += 10
+    if key == GLUT_KEY_DOWN:  cam_h = max(60, cam_h - 10)
 
-# Feature 20: Interactive Objects (Levers)
-LEVERS = []
-LEVER_STATES = []
 
-def init_levers(seed):
-    global LEVERS, LEVER_STATES
-    rng = random.Random(seed + 777)
-    LEVERS = []
-    LEVER_STATES = [False, False, False]
-    
-    positions = [
-        (WALL_X - 400, 200),
-        (WALL_X - 400, -200),
-        (-GRID_LEN + 200, 0)
-    ]
-    
-    for i, (x, y) in enumerate(positions):
-        if _safe_point_for_player(x, y):
-            LEVERS.append({
-                'x': x, 'y': y, 'state': False,
-                'angle': 0, 'target_angle': 0
-            })
+def mouse(btn, st, _x, _y):
+    global follow
+    if btn == GLUT_RIGHT_BUTTON and st == GLUT_DOWN:
+        follow = 1 - follow
 
-def update_levers():
-    for lever in LEVERS:
-        # Smooth lever animation
-        lever['angle'] += (lever['target_angle'] - lever['angle']) * 0.2
 
-def draw_levers():
-    for lever in LEVERS:
-        glPushMatrix()
-        glTranslatef(lever['x'], lever['y'], 20)
-        
-        # Lever base
-        glColor3f(0.3, 0.3, 0.3)
-        glutSolidCube(15)
-        
-        # Lever handle
-        glRotatef(lever['angle'], 0, 1, 0)
-        glTranslatef(0, 0, 10)
-        glColor3f(0.8, 0.8, 0.0)
-        glutSolidCylinder(3, 30, 10, 2)
-        glPopMatrix()
+# ---------- HUD/time (features 6, 17/19 capture) ----------
+def idle():
+    global frames, sec_left, GAME_OVER, score, final_score
+    if not GAME_OVER and not LEVEL_CLEAR:
+        frames += 1
+        if frames % fps_guess == 0 and sec_left > 0:
+            sec_left -= 1
+            if sec_left <= 0:
+                GAME_OVER = True
+                final_score = score
+                score = 0
+    glutPostRedisplay()
 
-def check_lever_interaction():
-    global hud_msg
-    for i, lever in enumerate(LEVERS):
-        dist = math.sqrt((player_x - lever['x'])**2 + (player_y - lever['y'])**2)
-        if dist < 30:
-            lever['state'] = not lever['state']
-            lever['target_angle'] = 45 if lever['state'] else 0
-            hud_msg = f"Lever {'activated' if lever['state'] else 'deactivated'}!"
-            return True
-    return False
 
-# Feature 21: Secret Areas
-SECRET_AREAS = []
-SECRET_FOUND = [False, False, False]
+# ---------- top-level keyboard (features 17 & 18 menus) ----------
+def keyboard(k, x, y):
+    global LEVEL_CLEAR, NEXT_LEVEL_WIP, level
 
-def init_secret_areas(seed):
-    global SECRET_AREAS
-    rng = random.Random(seed + 888)
-    SECRET_AREAS = []
-    
-    # Create hidden areas behind trees/near edges
-    for i in range(3):
-        angle = 2 * math.pi * i / 3
-        dist = GRID_LEN * 0.8
-        x = math.cos(angle) * dist * 0.7
-        y = math.sin(angle) * dist * 0.7
-        
-        SECRET_AREAS.append({
-            'x': x, 'y': y, 'radius': 80,
-            'found': False, 'rewarded': False
-        })
 
-def check_secret_areas():
-    global score, hud_msg
-    for i, area in enumerate(SECRET_AREAS):
-        dist = math.sqrt((player_x - area['x'])**2 + (player_y - area['y'])**2)
-        if dist < area['radius'] and not area['rewarded']:
-            if not area['found']:
-                area['found'] = True
-                score += 150
-                hud_msg = "Secret area found! +150 points"
-            area['rewarded'] = True
-            SECRET_FOUND[i] = True
-
-# Feature 22: Time Warp Zones
-TIME_WARP_ZONES = []
-TIME_WARP_ACTIVE = False
-
-def init_time_warp_zones(seed):
-    global TIME_WARP_ZONES
-    rng = random.Random(seed + 999)
-    TIME_WARP_ZONES = []
-    
-    for _ in range(2):
-        x = rng.uniform(-GRID_LEN * 0.7, GRID_LEN * 0.7)
-        y = rng.uniform(-GRID_LEN * 0.7, GRID_LEN * 0.7)
-        if _safe_point_for_player(x, y):
-            TIME_WARP_ZONES.append({
-                'x': x, 'y': y, 'radius': 60,
-                'active': False, 'cooldown': 0
-            })
-
-def update_time_warp_zones():
-    global TIME_WARP_ACTIVE, sec_left
-    TIME_WARP_ACTIVE = False
-    
-    for zone in TIME_WARP_ZONES:
-        if zone['cooldown'] > 0:
-            zone['cooldown'] -= 1
-            continue
-            
-        dist = math.sqrt((player_x - zone['x'])**2 + (player_y - zone['y'])**2)
-        if dist < zone['radius']:
-            TIME_WARP_ACTIVE = True
-            sec_left += 0.2  # Time moves slower in warp zone
-            zone['active'] = True
-        else:
-            zone['active'] = False
-
-def draw_time_warp_zones():
-    for zone in TIME_WARP_ZONES:
-        glPushMatrix()
-        glTranslatef(zone['x'], zone['y'], 0.1)
-        
-        if zone['active']:
-            glColor4f(0.5, 0.0, 0.8, 0.6)
-        else:
-            glColor4f(0.3, 0.0, 0.5, 0.3)
-            
-        draw_disk(zone['radius'], 32)
-        glPopMatrix()
-
-# Feature 23: Dynamic Difficulty
-DYNAMIC_DIFFICULTY = 1.0
-
-def update_dynamic_difficulty():
-    global DYNAMIC_DIFFICULTY
-    # Increase difficulty based on player performance
-    if score > 500 and lives > 3:
-        DYNAMIC_DIFFICULTY = min(2.0, 1.0 + (score - 500) / 1000)
-    
-    # Apply difficulty to enemies
-    for s in SWEEPERS:
-        s[5] = (abs(s[5]) * DYNAMIC_DIFFICULTY) * (1 if s[5] >= 0 else -1)
-    for r in ROAMERS:
-        r[5] *= DYNAMIC_DIFFICULTY
-        r[7] *= DYNAMIC_DIFFICULTY
-
-# Feature 24: Particle Effects
-PARTICLES = []
-
-def create_explosion(x, y, z, color=(1.0, 0.5, 0.0), count=20):
-    for _ in range(count):
-        angle = random.uniform(0, 2 * math.pi)
-        speed = random.uniform(2, 8)
-        size = random.uniform(2, 6)
-        life = random.uniform(30, 60)
-        PARTICLES.append([
-            x, y, z,
-            math.cos(angle) * speed, math.sin(angle) * speed, random.uniform(2, 6),
-            color[0], color[1], color[2],
-            size, life
-        ])
-
-def update_particles():
-    global PARTICLES
-    new_particles = []
-    for p in PARTICLES:
-        p[0] += p[3]  # x += vx
-        p[1] += p[4]  # y += vy
-        p[2] += p[5]  # z += vz
-        p[5] -= 0.1   # gravity
-        p[9] -= 1     # life decrease
-        
-        if p[9] > 0 and p[2] > 0:
-            new_particles.append(p)
-    PARTICLES = new_particles
-
-def draw_particles():
-    glBegin(GL_QUADS)
-    for p in PARTICLES:
-        alpha = p[9] / 60.0  # fade out
-        glColor4f(p[6], p[7], p[8], alpha)
-        size = p[9] / 10.0  # shrink over time
-        glVertex3f(p[0]-size, p[1]-size, p[2])
-        glVertex3f(p[0]+size, p[1]-size, p[2])
-        glVertex3f(p[0]+size, p[1]+size, p[2])
-        glVertex3f(p[0]-size, p[1]+size, p[2])
-    glEnd()
-
-# Feature 25: Interactive Tutorial
-TUTORIAL_STAGE = 0
-TUTORIAL_MESSAGES = [
-    "Use WASD to move around",
-    "Push crates onto pressure plates",
-    "Avoid red sweepers and roamers",
-    "Find gems for extra points",
-    "Reach the exit gate to win!"
-]
-
-def update_tutorial():
-    global TUTORIAL_STAGE, hud_msg
-    if TUTORIAL_STAGE < len(TUTORIAL_MESSAGES):
-        # Progress tutorial based on player actions
-        if TUTORIAL_STAGE == 0 and (abs(player_x) > 100 or abs(player_y) > 100):
-            TUTORIAL_STAGE = 1
-        elif TUTORIAL_STAGE == 1 and any(_crate_on_plate(px, py) for (px, py) in PLATES):
-            TUTORIAL_STAGE = 2
-        elif TUTORIAL_STAGE == 2 and any(s[5] != 0 for s in SWEEPERS):
-            TUTORIAL_STAGE = 3
-        elif TUTORIAL_STAGE == 3 and GEMS_COLLECTED > 0:
-            TUTORIAL_STAGE = 4
-        
-        hud_msg = TUTORIAL_MESSAGES[TUTORIAL_STAGE]
-
-# Feature 26: Achievement System
-ACHIEVEMENTS = {
-    "first_move": False,
-    "first_crate": False,
-    "gem_collector": False,
-    "speed_runner": False,
-    "perfect_run": False
-}
-
-def check_achievements():
-    global hud_msg, score
-    if not ACHIEVEMENTS["first_move"] and (abs(player_x) > 50 or abs(player_y) > 50):
-        ACHIEVEMENTS["first_move"] = True
-        score += 50
-        hud_msg = "Achievement: First Steps! +50 points"
-    
-    if not ACHIEVEMENTS["first_crate"] and any(p > 0 for p in CRATE_PROGRESS):
-        ACHIEVEMENTS["first_crate"] = True
-        score += 50
-        hud_msg = "Achievement: Mover! +50 points"
-    
-    if not ACHIEVEMENTS["gem_collector"] and GEMS_COLLECTED >= 5:
-        ACHIEVEMENTS["gem_collector"] = True
-        score += 100
-        hud_msg = "Achievement: Gem Collector! +100 points"
-    
-    if not ACHIEVEMENTS["speed_runner"] and sec_left > 60 and LEVEL_CLEAR:
-        ACHIEVEMENTS["speed_runner"] = True
-        score += 150
-        hud_msg = "Achievement: Speed Runner! +150 points"
-
-# Feature 27: Enhanced Visual Feedback
-def draw_enhanced_feedback():
-    # Highlight interactive objects when nearby
-    for (px, py) in PLATES:
-        dist = math.sqrt((player_x - px)**2 + (player_y - py)**2)
-        if dist < 100:
-            glPushMatrix()
-            glTranslatef(px, py, 0.2)
-            glColor4f(1.0, 1.0, 0.0, 0.3 * (1 - dist/100))
-            draw_disk(PLATE_R + 10, 24)
-            glPopMatrix()
-    
-    # Player outline based on health
-    if lives < 3:
-        glPushMatrix()
-        glTranslatef(player_x, player_y, 0)
-        glColor4f(1.0, 0.0, 0.0, 0.5)
-        draw_circle_outline(PLAYER_RADIUS + 5, 16, 2.0)
-        glPopMatrix()
-
-# Feature 28: Sound Effect System (Visual Representation)
-SOUND_EMITTERS = []
-
-def play_sound_effect(x, y, type="click", intensity=1.0):
-    SOUND_EMITTERS.append({
-        'x': x, 'y': y, 'type': type,
-        'radius': 0, 'max_radius': 30 * intensity,
-        'speed': 2.0 * intensity, 'alpha': 1.0
-    })
-
-def update_sound_effects():
-    global SOUND_EMITTERS
-    new_emitters = []
-    for sound in SOUND_EMITTERS:
-        sound['radius'] += sound['speed']
-        sound['alpha'] = 1.0 - (sound['radius'] / sound['max_radius'])
-        if sound['radius'] < sound['max_radius']:
-            new_emitters.append(sound)
-    SOUND_EMITTERS = new_emitters
-
-def draw_sound_effects():
-    for sound in SOUND_EMITTERS:
-        glPushMatrix()
-        glTranslatef(sound['x'], sound['y'], 1.0)
-        if sound['type'] == "click":
-            glColor4f(0.0, 1.0, 1.0, sound['alpha'] * 0.5)
-        elif sound['type'] == "explosion":
-            glColor4f(1.0, 0.5, 0.0, sound['alpha'] * 0.7)
-        else:
-            glColor4f(1.0, 1.0, 1.0, sound['alpha'] * 0.3)
-        draw_circle_outline(sound['radius'], 24, 0.0)
-        glPopMatrix()
-
-# Feature 29: Mini-map
-MINIMAP_VISIBLE = True
-
-def draw_minimap():
-    if not MINIMAP_VISIBLE:
+    if GAME_OVER:
+        if k == b'r':
+            LEVEL_CLEAR = False
+            adv._start_level(level)
+            return
+        if b'1' <= k <= b'9':
+            try:
+                n = int(k.decode('ascii'))
+                if 1 <= n <= MAX_LEVEL:
+                    LEVEL_CLEAR = False
+                    adv._start_level(n)
+                    return
+            except:
+                pass
         return
-        
-    glMatrixMode(GL_PROJECTION)
-    glPushMatrix()
-    glLoadIdentity()
-    gluOrtho2D(0, 300, 0, 300)
-    glMatrixMode(GL_MODELVIEW)
-    glPushMatrix()
-    glLoadIdentity()
-    
-    # Background
-    glColor4f(0.1, 0.1, 0.1, 0.7)
-    glBegin(GL_QUADS)
-    glVertex2f(10, 10)
-    glVertex2f(290, 10)
-    glVertex2f(290, 290)
-    glVertex2f(10, 290)
-    glEnd()
-    
-    # Border
-    glColor3f(1.0, 1.0, 1.0)
-    glBegin(GL_LINE_LOOP)
-    glVertex2f(10, 10)
-    glVertex2f(290, 10)
-    glVertex2f(290, 290)
-    glVertex2f(10, 290)
-    glEnd()
-    
-    # Draw player
-    scale = 280 / (GRID_LEN * 2)
-    px = 150 + player_x * scale
-    py = 150 + player_y * scale
-    glColor3f(0.0, 0.0, 1.0)
-    glBegin(GL_QUADS)
-    glVertex2f(px-3, py-3)
-    glVertex2f(px+3, py-3)
-    glVertex2f(px+3, py+3)
-    glVertex2f(px-3, py+3)
-    glEnd()
-    
-    # Draw exit
-    if GATES:
-        gx, gy = _gate_center(GATES[0])
-        gx = 150 + gx * scale
-        gy = 150 + gy * scale
-        glColor3f(0.0, 1.0, 0.0)
-        glBegin(GL_QUADS)
-        glVertex2f(gx-4, gy-4)
-        glVertex2f(gx+4, gy-4)
-        glVertex2f(gx+4, gy+4)
-        glVertex2f(gx-4, gy+4)
-        glEnd()
-    
-    glPopMatrix()
-    glMatrixMode(GL_PROJECTION)
-    glPopMatrix()
-    glMatrixMode(GL_MODELVIEW)
 
-# ==================== INTEGRATION HELPERS ====================
 
-def init_all_features(seed):
-    """Initialize all new features"""
-    init_weather_system()
-    init_npcs(seed)
-    init_levers(seed)
-    init_secret_areas(seed)
-    init_time_warp_zones(seed)
+    if LEVEL_CLEAR:
+        if level == 2:
+            if NEXT_LEVEL_WIP:
+                if k == b'r':
+                    NEXT_LEVEL_WIP = False; LEVEL_CLEAR = False; adv._start_level(2); return
+                if k == b'1':
+                    NEXT_LEVEL_WIP = False; LEVEL_CLEAR = False; adv._start_level(1); return
+                return
+            else:
+                if k == b'l':
+                    NEXT_LEVEL_WIP = True; return
+                if k == b'1':
+                    LEVEL_CLEAR = False; adv._start_level(1); return
+                if k == b'r':
+                    LEVEL_CLEAR = False; adv._start_level(2); return
+                return
+        else:
+            if k == b'l':
+                LEVEL_CLEAR = False; adv.on_level_clear(); return
+            if k == b'r':
+                LEVEL_CLEAR = False; adv.reset_run(); return
+            return
 
-def update_all_features():
-    """Update all new features each frame"""
-    update_weather()
-    update_day_night_cycle()
-    update_npcs()
-    update_music_system()
-    update_levers()
-    update_time_warp_zones()
-    update_dynamic_difficulty()
-    update_particles()
-    update_tutorial()
-    update_sound_effects()
-    check_achievements()
-    check_npc_interaction()
-    check_secret_areas()
-    check_lever_interaction()
 
-def draw_all_features():
-    """Draw all new features"""
-    draw_weather_effects()
-    draw_npcs()
-    draw_levers()
-    draw_time_warp_zones()
-    draw_particles()
-    draw_sound_effects()
-    draw_minimap()
-    draw_enhanced_feedback()
+    # normal gameplay goes to Block 3 (dash + Block 2 WASD)
+    adv.keyboard_gameplay(k, x, y)
 
+
+# ---------- showscreen() (features 6,17,18 + draws everything) ----------
+def showscreen():
+    glClearColor(0.30, 0.55, 0.90, 1.0)
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+    glViewport(0, 0, win_w, win_h)
+
+
+    # === GAME OVER (feature 17) ===
+    if GAME_OVER:
+        draw_sky()
+        cx = 500
+        draw_text(cx, 420, "GAME OVER", color=(1,0,0), center=True)
+        draw_text(cx, 380, f"Final Score: {final_score}   Level: {level}", color=(0,0,0), center=True)
+        draw_text(cx, 340, f"Press R to restart Level-{level}", color=(0,0,0), center=True)
+        y = 300
+        for n in range(1, MAX_LEVEL + 1):
+            draw_text(cx, y, f"Press '{n}' to go to Level-{n}", color=(0,0,0), center=True)
+            y -= 30
+        glutSwapBuffers(); return
+
+
+    # === LEVEL CLEAR (feature 18) ===
+    if LEVEL_CLEAR:
+        draw_sky(); cx = 500
+        if level == 2:
+            if NEXT_LEVEL_WIP:
+                draw_text(cx, 420, "NEXT LEVEL UNDER IMPLEMENTATION", color=(0.7,0,0), center=True)
+                draw_text(cx, 390, f"Score: {score}", color=(0,0,0), center=True)
+                draw_text(cx, 360, "Press R to restart Level-2", color=(0,0,0), center=True)
+                draw_text(cx, 330, "Press '1' to go to Level-1", color=(0,0,0), center=True)
+            else:
+                draw_text(cx, 420, "LEVEL-2 COMPLETED", color=(0,0.6,0), center=True)
+                draw_text(cx, 390, f"Score: {score}", color=(0,0,0), center=True)
+                draw_text(cx, 360, "Press 'L' for the Next Level", color=(0,0,0), center=True)
+                draw_text(cx, 330, "Press '1' to go to Level-1", color=(0,0,0), center=True)
+                draw_text(cx, 300, "Press R to restart Level-2", color=(0,0,0), center=True)
+        else:
+            draw_text(cx, 420, f"LEVEL-{level} COMPLETED", color=(0,0.6,0), center=True)
+            draw_text(cx, 390, f"Score: {score}", color=(0,0,0), center=True)
+            draw_text(cx, 360, "Press L for the Next Level", color=(0,0,0), center=True)
+            draw_text(cx, 320, "Press R to restart", color=(0,0,0), center=True)
+        glutSwapBuffers(); return
+
+
+    # === runtime updates ===
+    core.update_gates_linked()
+    core.check_exit_portal()
+    core.update_sweepers()
+    core.update_roamers()
+
+
+    t = time.time()
+    adv.fragile_update(t)
+    core.sweepers_check_collision()
+    core.roamers_check_collision()
+    adv.fragile_check_player_fall()
+
+
+    adv._checkpoint_tick()     # 13
+    adv._teleport_tick(t)      # 14
+    adv._boost_tick(t)         # 12
+    adv._gems_tick()           # 11
+
+
+    # === draw world ===
+    draw_sky()
+    setup_camera()
+    draw_ground_infinite()
+    core.draw_level_geometry()
+    draw_jungle_props()
+    adv.draw_fragile_patches()
+    core.draw_pressure_plates()
+    core.draw_crates()
+    core.draw_sweepers()
+    core.draw_roamers()
+    adv._draw_telepads()       # 14
+    adv._draw_speed_pads()     # 12
+    adv._draw_gems()           # 11
+    adv._draw_checkpoint()     # 13
+    core.draw_player()
+
+
+    # === HUD (feature 6) + scoring summary (19) ===
+    k, n = core.plates_status()
+    draw_text(10, 770, f"Lives: {lives}  Time: {sec_left}s  Score: {score}  Level: {level}")
+    draw_text(10, 745, f"Plates: {k}/{n}   Gates: {core.gates_status_text()}")
+    boost_left = max(0.0, adv._boost_until - t)
+    dash_cd    = max(0.0, (adv._last_dash_time + adv.DASH_COOLDOWN_SECS) - t)
+    ck = "ACTIVE" if adv._checkpoint_active else "-"
+    line3 = f"Gems: {adv.GEMS_COLLECTED}/{adv.GEMS_TARGET}   "
+    line3 += ("Boost %.1fx (%.1fs)   " % (adv.BOOST_MULT, boost_left)) if boost_left > 0.01 else "Boost ready   "
+    line3 += f"Dash CD: {dash_cd:.1f}s   "
+    line3 += f"Checkpoint: {ck}"
+    draw_text(10, 720, line3)
+    if hud_msg: draw_text(10, 695, hud_msg)
+    glutSwapBuffers()
 
 
